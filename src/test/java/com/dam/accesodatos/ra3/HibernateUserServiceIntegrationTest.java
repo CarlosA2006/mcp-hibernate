@@ -3,6 +3,7 @@ package com.dam.accesodatos.ra3;
 import com.dam.accesodatos.model.User;
 import com.dam.accesodatos.model.UserCreateDto;
 import com.dam.accesodatos.model.UserUpdateDto;
+import com.dam.accesodatos.model.UserQueryDto;
 import com.dam.accesodatos.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,17 +18,21 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests de integración para los métodos IMPLEMENTADOS de HibernateUserServiceImpl
+ * Tests de integración para los métodos IMPLEMENTADOS de
+ * HibernateUserServiceImpl
  *
- * @SpringBootTest carga el contexto completo de Spring con base de datos H2 real.
- * Estos tests validan que los métodos de ejemplo funcionan correctamente end-to-end.
+ * @SpringBootTest carga el contexto completo de Spring con base de datos H2
+ *                 real.
+ *                 Estos tests validan que los métodos de ejemplo funcionan
+ *                 correctamente end-to-end.
  *
- * COBERTURA: 7 tests que validan los 6 métodos implementados:
- * 1. testEntityManager() - 1 test
- * 2. createUser() + findUserById() + updateUser() - 1 test de flujo completo
- * 3. findAll() - 1 test
- * 4. findUsersByDepartment() - 1 test
- * 5. Flujo CRUD completo - 1 test integrado
+ *                 COBERTURA: 7 tests que validan los 6 métodos implementados:
+ *                 1. testEntityManager() - 1 test
+ *                 2. createUser() + findUserById() + updateUser() - 1 test de
+ *                 flujo completo
+ *                 3. findAll() - 1 test
+ *                 4. findUsersByDepartment() - 1 test
+ *                 5. Flujo CRUD completo - 1 test integrado
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -179,6 +184,82 @@ class HibernateUserServiceIntegrationTest {
         assertThrows(RuntimeException.class, () -> {
             service.updateUser(999L, updateDto);
         });
+    }
+
+    // ========== Tests Nuevos Métodos (RA3) ==========
+
+    @Test
+    @DisplayName("deleteUser() - Elimina usuario correctamente en BD real")
+    void deleteUser_RealDB_Success() {
+        // Given
+        User user = createTestUser("To Delete", "delete@test.com", "Temp");
+        Long id = user.getId();
+
+        // When
+        boolean deleted = service.deleteUser(id);
+
+        // Then
+        assertTrue(deleted);
+        assertNull(service.findUserById(id));
+    }
+
+    @Test
+    @DisplayName("searchUsers() - Filtra correctamente en BD real")
+    void searchUsers_RealDB_Success() {
+        // Given
+        createTestUser("Search 1", "s1@test.com", "DevOps");
+        createTestUser("Search 2", "s2@test.com", "DevOps");
+        createTestUser("Other", "other@test.com", "HR");
+
+        UserQueryDto query = new UserQueryDto();
+        query.setDepartment("DevOps");
+        query.setActive(true);
+
+        // When
+        List<User> results = service.searchUsers(query);
+
+        // Then
+        assertEquals(2, results.size());
+    }
+
+    @Test
+    @DisplayName("transferData() - Transacción guarda todos los usuarios")
+    void transferData_RealDB_Success() {
+        // Given
+        User u1 = new User();
+        u1.setName("Bulk 1");
+        u1.setEmail("bulk1@test.com");
+        u1.setDepartment("Bulk");
+        u1.setActive(true);
+
+        User u2 = new User();
+        u2.setName("Bulk 2");
+        u2.setEmail("bulk2@test.com");
+        u2.setDepartment("Bulk");
+        u2.setActive(true);
+
+        // When
+        boolean result = service.transferData(List.of(u1, u2));
+
+        // Then
+        assertTrue(result);
+        assertEquals(2, service.executeCountByDepartment("Bulk"));
+    }
+
+    @Test
+    @DisplayName("executeCountByDepartment() - Cuenta correctamente en BD real")
+    void executeCountByDepartment_RealDB_Success() {
+        // Given
+        createTestUser("C1", "c1@test.com", "Sales");
+        createTestUser("C2", "c2@test.com", "Sales");
+        createTestUser("C3", "c3@test.com", "Sales");
+        createTestUser("Other", "other@test.com", "Marketing");
+
+        // When
+        long count = service.executeCountByDepartment("Sales");
+
+        // Then
+        assertEquals(3, count);
     }
 
     // ========== Métodos auxiliares ==========

@@ -3,6 +3,7 @@ package com.dam.accesodatos.ra3;
 import com.dam.accesodatos.model.User;
 import com.dam.accesodatos.model.UserCreateDto;
 import com.dam.accesodatos.model.UserUpdateDto;
+import com.dam.accesodatos.model.UserQueryDto;
 import com.dam.accesodatos.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
@@ -29,7 +30,8 @@ import static org.mockito.Mockito.*;
  * Tests unitarios para los métodos IMPLEMENTADOS de HibernateUserServiceImpl
  *
  * Estos tests cubren los 6 métodos de ejemplo implementados.
- * Los estudiantes pueden usarlos como guía para testear sus propias implementaciones.
+ * Los estudiantes pueden usarlos como guía para testear sus propias
+ * implementaciones.
  *
  * COBERTURA: 10 tests que validan los 6 métodos implementados:
  * 1. testEntityManager() - 2 tests
@@ -91,7 +93,7 @@ class HibernateUserServiceImplTest {
         when(entityManager.isOpen()).thenReturn(true);
         Query query = mock(Query.class);
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
-        when(query.getSingleResult()).thenReturn(new Object[]{1, "H2"});
+        when(query.getSingleResult()).thenReturn(new Object[] { 1, "H2" });
 
         // When
         String result = service.testEntityManager();
@@ -261,5 +263,118 @@ class HibernateUserServiceImplTest {
         assertNotNull(result);
         assertTrue(result.isEmpty());
         verify(query).getResultList();
+    }
+
+    // ========== Tests para deleteUser() ==========
+
+    @Test
+    @DisplayName("deleteUser() - Elimina usuario existente")
+    void deleteUser_Success() {
+        // Given
+        when(entityManager.find(User.class, 1L)).thenReturn(testUser);
+
+        // When
+        boolean result = service.deleteUser(1L);
+
+        // Then
+        assertTrue(result);
+        verify(entityManager).find(User.class, 1L);
+        verify(entityManager).remove(testUser);
+    }
+
+    @Test
+    @DisplayName("deleteUser() - Retorna false si usuario no existe")
+    void deleteUser_NotFound() {
+        // Given
+        when(entityManager.find(User.class, 999L)).thenReturn(null);
+
+        // When
+        boolean result = service.deleteUser(999L);
+
+        // Then
+        assertFalse(result);
+        verify(entityManager).find(User.class, 999L);
+        verify(entityManager, never()).remove(any());
+    }
+
+    // ========== Tests para searchUsers() ==========
+
+    @Test
+    @DisplayName("searchUsers() - Busca con filtros dinámicos")
+    void searchUsers_WithFilters() {
+        // Given
+        UserQueryDto queryDto = new UserQueryDto();
+        queryDto.setDepartment("IT");
+        queryDto.setActive(true);
+
+        TypedQuery<User> query = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(User.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(Arrays.asList(testUser));
+
+        // When
+        List<User> result = service.searchUsers(queryDto);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(entityManager).createQuery(contains("AND u.department = :dept"), eq(User.class));
+        verify(entityManager).createQuery(contains("AND u.active = :active"), eq(User.class));
+        verify(query).setParameter("dept", "IT");
+        verify(query).setParameter("active", true);
+    }
+
+    @Test
+    @DisplayName("searchUsers() - Busca sin filtros")
+    void searchUsers_NoFilters() {
+        // Given
+        UserQueryDto queryDto = new UserQueryDto();
+        TypedQuery<User> query = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(User.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(Arrays.asList(testUser));
+
+        // When
+        List<User> result = service.searchUsers(queryDto);
+
+        // Then
+        assertNotNull(result);
+        verify(entityManager).createQuery(anyString(), eq(User.class));
+        verify(query, never()).setParameter(anyString(), any());
+    }
+
+    // ========== Tests para transferData() ==========
+
+    @Test
+    @DisplayName("transferData() - Persiste lista de usuarios")
+    void transferData_Success() {
+        // Given
+        List<User> users = Arrays.asList(testUser, new User());
+
+        // When
+        boolean result = service.transferData(users);
+
+        // Then
+        assertTrue(result);
+        verify(entityManager, times(2)).persist(any(User.class));
+    }
+
+    // ========== Tests para executeCountByDepartment() ==========
+
+    @Test
+    @DisplayName("executeCountByDepartment() - Cuenta usuarios por departamento")
+    void executeCountByDepartment_Success() {
+        // Given
+        TypedQuery<Long> query = mock(TypedQuery.class);
+        when(entityManager.createQuery(anyString(), eq(Long.class))).thenReturn(query);
+        when(query.setParameter(anyString(), any())).thenReturn(query); // Fluent API mock
+        when(query.getSingleResult()).thenReturn(5L);
+
+        // When
+        long count = service.executeCountByDepartment("IT");
+
+        // Then
+        assertEquals(5L, count);
+        verify(entityManager).createQuery(contains("COUNT(u)"), eq(Long.class));
+        verify(entityManager).createQuery(contains("active = true"), eq(Long.class));
+        verify(query).setParameter("dept", "IT");
     }
 }

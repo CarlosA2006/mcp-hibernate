@@ -44,7 +44,7 @@ import java.util.*;
  * 4. executeCountByDepartment() - JPQL COUNT
  */
 @Service
-@Transactional(readOnly = true)  // Transacciones de solo lectura por defecto
+@Transactional(readOnly = true) // Transacciones de solo lectura por defecto
 public class HibernateUserServiceImpl implements HibernateUserService {
 
     @PersistenceContext
@@ -99,7 +99,7 @@ public class HibernateUserServiceImpl implements HibernateUserService {
      * IMPORTANTE: @Transactional es obligatorio para operaciones que modifican BD
      */
     @Override
-    @Transactional  // ← CRÍTICO: Modifica BD, necesita transacción
+    @Transactional // ← CRÍTICO: Modifica BD, necesita transacción
     public User createUser(UserCreateDto dto) {
         // Crear entidad desde DTO
         User user = new User();
@@ -113,13 +113,14 @@ public class HibernateUserServiceImpl implements HibernateUserService {
 
         // persist() guarda la entidad en el contexto de persistencia
         // Hibernate genera automáticamente:
-        // INSERT INTO users (name, email, department, role, active, created_at, updated_at)
+        // INSERT INTO users (name, email, department, role, active, created_at,
+        // updated_at)
         // VALUES (?, ?, ?, ?, ?, ?, ?)
         entityManager.persist(user);
 
         // Al finalizar el método, Spring hace commit automáticamente
         // Hibernate ejecuta el INSERT y setea el ID generado
-        return user;  // El ID ya está seteado
+        return user; // El ID ya está seteado
     }
 
     /**
@@ -128,7 +129,8 @@ public class HibernateUserServiceImpl implements HibernateUserService {
      * Muestra la forma más simple de recuperar una entidad por ID.
      *
      * DIFERENCIAS vs RA2 (JDBC):
-     * - RA2: PreparedStatement con "SELECT * FROM users WHERE id = ?", mapeo manual de ResultSet
+     * - RA2: PreparedStatement con "SELECT * FROM users WHERE id = ?", mapeo manual
+     * de ResultSet
      * - RA3: entityManager.find(User.class, id), todo automático
      *
      * NOTA: find() retorna null si no existe (no lanza excepción)
@@ -156,7 +158,7 @@ public class HibernateUserServiceImpl implements HibernateUserService {
      * 3. merge() sincroniza cambios con BD
      */
     @Override
-    @Transactional  // ← Modifica BD
+    @Transactional // ← Modifica BD
     public User updateUser(Long id, UserUpdateDto dto) {
         // 1. Buscar entidad existente
         User existing = findUserById(id);
@@ -191,28 +193,12 @@ public class HibernateUserServiceImpl implements HibernateUserService {
     @Override
     @Transactional
     public boolean deleteUser(Long id) {
-        // TODO CE3.e: Implementar deleteUser()
-        //
-        // Guía de implementación:
-        // 1. Buscar usuario: User user = findUserById(id);
-        //
-        // 2. Verificar si existe:
-        //    if (user == null) return false;
-        //
-        // 3. Eliminar con remove():
-        //    entityManager.remove(user);
-        //
-        // 4. Retornar true
-        //
-        // IMPORTANTE: remove() requiere que la entidad esté managed (en contexto de persistencia)
-        // Por eso primero la buscamos con find()
-        //
-        // DIFERENCIA vs RA2:
-        // - RA2: DELETE FROM users WHERE id = ?
-        // - RA3: entityManager.remove(user)
-
-        throw new UnsupportedOperationException("TODO CE3.e: Implementar deleteUser() - " +
-                "Usar find() para buscar y remove() para eliminar");
+        User user = findUserById(id);
+        if (user == null) {
+            return false;
+        }
+        entityManager.remove(user);
+        return true;
     }
 
     /**
@@ -265,41 +251,31 @@ public class HibernateUserServiceImpl implements HibernateUserService {
 
     @Override
     public List<User> searchUsers(UserQueryDto queryDto) {
-        // TODO CE3.f: Implementar searchUsers() con JPQL dinámico
-        //
-        // VERSIÓN SIMPLIFICADA: Usa JPQL en lugar de Criteria API
-        //
-        // Guía de implementación:
-        // 1. Construir JPQL dinámicamente:
-        //    StringBuilder jpql = new StringBuilder("SELECT u FROM User u WHERE 1=1");
-        //
-        // 2. Añadir condiciones según filtros presentes:
-        //    if (queryDto.getDepartment() != null) {
-        //        jpql.append(" AND u.department = :dept");
-        //    }
-        //    if (queryDto.getRole() != null) {
-        //        jpql.append(" AND u.role = :role");
-        //    }
-        //    if (queryDto.getActive() != null) {
-        //        jpql.append(" AND u.active = :active");
-        //    }
-        //
-        // 3. Crear TypedQuery:
-        //    TypedQuery<User> query = entityManager.createQuery(jpql.toString(), User.class);
-        //
-        // 4. Setear parámetros solo para filtros presentes:
-        //    if (queryDto.getDepartment() != null) {
-        //        query.setParameter("dept", queryDto.getDepartment());
-        //    }
-        //    // ... repetir para role y active
-        //
-        // 5. Ejecutar y retornar:
-        //    return query.getResultList();
-        //
-        // VENTAJA vs RA2: Parámetros nombrados evitan SQL injection
+        StringBuilder jpql = new StringBuilder("SELECT u FROM User u WHERE 1=1");
 
-        throw new UnsupportedOperationException("TODO CE3.f: Implementar searchUsers() - " +
-                "Usar JPQL dinámico con parámetros nombrados para filtros opcionales");
+        if (queryDto.getDepartment() != null && !queryDto.getDepartment().isEmpty()) {
+            jpql.append(" AND u.department = :dept");
+        }
+        if (queryDto.getRole() != null && !queryDto.getRole().isEmpty()) {
+            jpql.append(" AND u.role = :role");
+        }
+        if (queryDto.getActive() != null) {
+            jpql.append(" AND u.active = :active");
+        }
+
+        TypedQuery<User> query = entityManager.createQuery(jpql.toString(), User.class);
+
+        if (queryDto.getDepartment() != null && !queryDto.getDepartment().isEmpty()) {
+            query.setParameter("dept", queryDto.getDepartment());
+        }
+        if (queryDto.getRole() != null && !queryDto.getRole().isEmpty()) {
+            query.setParameter("role", queryDto.getRole());
+        }
+        if (queryDto.getActive() != null) {
+            query.setParameter("active", queryDto.getActive());
+        }
+
+        return query.getResultList();
     }
 
     // ========== CE3.g: Transacciones ==========
@@ -307,57 +283,17 @@ public class HibernateUserServiceImpl implements HibernateUserService {
     @Override
     @Transactional
     public boolean transferData(List<User> users) {
-        // TODO CE3.g: Implementar transferData()
-        //
-        // Guía de implementación:
-        // 1. Iterar sobre usuarios:
-        //    for (User user : users) {
-        //        entityManager.persist(user);
-        //    }
-        //
-        // 2. Si todo OK, Spring hace commit automáticamente al finalizar el método
-        //
-        // 3. Si hay error (excepción), Spring hace rollback automáticamente
-        //
-        // 4. Retornar true
-        //
-        // DIFERENCIA vs RA2:
-        // - RA2: conn.setAutoCommit(false), try-catch con commit()/rollback() manual
-        // - RA3: @Transactional maneja todo automáticamente
-        //
-        // NOTA PEDAGÓGICA:
-        // Esto demuestra la potencia de @Transactional de Spring:
-        // - No necesitas setAutoCommit(false)
-        // - No necesitas commit() manual
-        // - No necesitas rollback() manual en catch
-        // - Spring lo hace automáticamente según el resultado del método
-
-        throw new UnsupportedOperationException("TODO CE3.g: Implementar transferData() - " +
-                "Usar @Transactional con múltiples persist(), Spring maneja commit/rollback automáticamente");
+        for (User user : users) {
+            entityManager.persist(user);
+        }
+        return true;
     }
 
     @Override
     public long executeCountByDepartment(String department) {
-        // TODO CE3.f: Implementar executeCountByDepartment()
-        //
-        // Guía de implementación:
-        // 1. Crear JPQL COUNT query:
-        //    String jpql = "SELECT COUNT(u) FROM User u WHERE u.department = :dept AND u.active = true";
-        //
-        // 2. Crear TypedQuery<Long>:
-        //    TypedQuery<Long> query = entityManager.createQuery(jpql, Long.class);
-        //
-        // 3. Setear parámetro:
-        //    query.setParameter("dept", department);
-        //
-        // 4. Ejecutar y retornar:
-        //    return query.getSingleResult();
-        //
-        // DIFERENCIA vs RA2:
-        // - RA2: CallableStatement para stored procedure
-        // - RA3: JPQL COUNT query directo (más simple)
-
-        throw new UnsupportedOperationException("TODO CE3.f: Implementar executeCountByDepartment() - " +
-                "Usar JPQL 'SELECT COUNT(u) FROM User u WHERE u.department = :dept'");
+        String jpql = "SELECT COUNT(u) FROM User u WHERE u.department = :dept AND u.active = true";
+        TypedQuery<Long> query = entityManager.createQuery(jpql, Long.class);
+        query.setParameter("dept", department);
+        return query.getSingleResult();
     }
 }

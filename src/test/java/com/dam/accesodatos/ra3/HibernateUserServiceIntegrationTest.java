@@ -230,12 +230,14 @@ class HibernateUserServiceIntegrationTest {
         u1.setName("Bulk 1");
         u1.setEmail("bulk1@test.com");
         u1.setDepartment("Bulk");
+        u1.setRole("Developer");
         u1.setActive(true);
 
         User u2 = new User();
         u2.setName("Bulk 2");
         u2.setEmail("bulk2@test.com");
         u2.setDepartment("Bulk");
+        u2.setRole("Tester");
         u2.setActive(true);
 
         // When
